@@ -41,9 +41,9 @@ export default function HomeScreen() {
       <View style={{paddingLeft:20,paddingTop:20}}>
         <View style={{marginTop:-90}}>
         <CourseProgress  />
-        <CourseList level={'Basic'} />
+        <CourseList level={'basic'} />
         </View>
-        <CourseList level={'Advance'} />
+        <CourseList level={'advance'} />
       </View>
     </ScrollView>
   )

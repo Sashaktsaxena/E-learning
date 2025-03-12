@@ -1,6 +1,6 @@
 import { request, gql } from 'graphql-request'
 //Replace This Complete Master Key
-const MASTER_URL="https://api-us-east-1-shared-usea1-02.hygraph.com/v2/<Your Key Goes Here>/master";
+const MASTER_URL="https://ap-south-1.cdn.hygraph.com/content/cm85thfvs00kp07wfuncjvdjy/master";
 
 export const getCourseList=async(level)=>{
     const query=gql`
@@ -46,12 +46,12 @@ export const enrollCourse=async(courseId,userEmail)=>{
   const mutationQuery=gql`
   mutation MyMutation {
     createUserEnrolledCourse(
-      data: {courseId: "`+courseId+`", 
+      data: {courseid: "`+courseId+`", 
       userEmail: "`+userEmail+`", course: {connect: {id: "`+courseId+`"}}}
     ) {
       id
     }
-    publishManyUserEnrolledCoursesConnection(to: PUBLISHED) {
+    publishManyUSerEnrolledCoursesConnection(to: PUBLISHED){
       edges {
         node {
           id
@@ -68,14 +68,14 @@ export const enrollCourse=async(courseId,userEmail)=>{
 export const getUserEnrolledCourse=async(courseId,userEmail)=>{
   const query=gql`
   query GetUserEnrolledCourse {
-    userEnrolledCourses(
-      where: {courseId: "`+courseId+`", 
+    uSerEnrolledCourses(
+      where: {courseid: "`+courseId+`", 
         userEmail: "`+userEmail+`"}
     ) {
       id
-      courseId
+      courseid
       completedChapter {
-        chapterId
+        chapterid
       }
     }
   }
