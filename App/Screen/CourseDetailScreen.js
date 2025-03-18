@@ -26,6 +26,7 @@ export default function CourseDetailScreen() {
     isChapterComplete&&GetUserEnrolledCourse();
   },[isChapterComplete])
   const UserEnrollCourse=()=>{
+    // console.log("enroll--",params.course.id,user.primaryEmailAddress.emailAddress);
     enrollCourse(params.course.id,user.primaryEmailAddress.emailAddress)
     .then(resp=>{
       // console.log("--",resp);
@@ -42,8 +43,8 @@ export default function CourseDetailScreen() {
   const GetUserEnrolledCourse=()=>{
     getUserEnrolledCourse(params.course.id,user.primaryEmailAddress.emailAddress)
     .then(resp=>{
-      //console.log("--",resp.userEnrolledCourses);
-      setUserEnrolledCourse(resp.userEnrolledCourses)
+      console.log("--jh",resp.uSerEnrolledCourses);
+      setUserEnrolledCourse(resp.uSerEnrolledCourses)
     })
   } 
   return params.course&&(

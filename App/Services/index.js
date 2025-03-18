@@ -45,7 +45,7 @@ export const getCourseList=async(level)=>{
 export const enrollCourse=async(courseId,userEmail)=>{
   const mutationQuery=gql`
   mutation MyMutation {
-    createUserEnrolledCourse(
+    createUserEnrolledCourses(
       data: {courseid: "`+courseId+`", 
       userEmail: "`+userEmail+`", course: {connect: {id: "`+courseId+`"}}}
     ) {
@@ -88,13 +88,13 @@ export const getUserEnrolledCourse=async(courseId,userEmail)=>{
 export const MarkChapterCompleted=async(chapterId,recordId,userEmail,points)=>{
   const mutationQuery=gql`
   mutation markChapterCompleted {
-    updateUserEnrolledCourse(
-      data: {completedChapter: {create: {data: {chapterId: "`+chapterId+`"}}}}
+    updateUserEnrolledCourses(
+      data: {completedChapter: {create: {data: {chapterid: "`+chapterId+`"}}}}
       where: {id: "`+recordId+`"}
     ) {
       id
     }
-    publishManyUserEnrolledCoursesConnection {
+    publishManyUSerEnrolledCoursesConnection {
       edges {
         node {
           id

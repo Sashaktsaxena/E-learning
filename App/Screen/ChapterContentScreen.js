@@ -6,6 +6,7 @@ import { MarkChapterCompleted } from '../Services';
 import { CompleteChapterContext } from '../Context/CompleteChapterContext';
 import { useUser } from '@clerk/clerk-expo';
 import { UserPointsContext } from '../Context/UserPointsContext';
+import { ScrollView } from 'react-native-gesture-handler';
 
 export default function ChapterContentScreen() {
   const param=useRoute().params;
@@ -17,8 +18,8 @@ export default function ChapterContentScreen() {
   //RecordId
 
   useEffect(()=>{
-    // console.log("ChapterId",param.content.length)
-    // console.log("RecordId",param.userCourseRecordId)
+    console.log("ChapterId",param.content.length)
+    console.log("RecordId",param.userCourseRecordId)
 
   },[param])
   const onChapterFinish=()=>{
@@ -34,10 +35,10 @@ export default function ChapterContentScreen() {
     })
   }
   return param.content&&(
-    <View>
+    <ScrollView>
       <Content content={param.content}
       onChapterFinish={()=>onChapterFinish()
       } />
-    </View>
+    </ScrollView>
   )
 }
