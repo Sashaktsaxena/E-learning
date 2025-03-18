@@ -30,7 +30,7 @@ export default function ChapterContentScreen() {
       {
         ToastAndroid.show('Chapter Completed!',ToastAndroid.LONG)
         setIsChapterComplete(true)
-       // navigation.goBack();
+       navigation.goBack();
       }
     })
   }

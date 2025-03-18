@@ -176,9 +176,9 @@ export const GetAllUsers=async()=>{
 export const GetAllProgressCourse=async(userEmail)=>{
   const query=gql`
   query GetAllUserEnrolledProgressCourse {
-    userEnrolledCourses(where: {userEmail: "`+userEmail+`"}) {
+    uSerEnrolledCourses(where: {userEmail: "`+userEmail+`"}) {
       completedChapter {
-        chapterId
+        chapterid
       }
       course {
         banner {

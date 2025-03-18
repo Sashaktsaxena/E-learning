@@ -18,7 +18,7 @@ export default function CourseProgress() {
     const GetAllProgressCourseList=()=>{
         GetAllProgressCourse(user.primaryEmailAddress.emailAddress)
         .then(resp=>{
-            setProgressCourseList(resp.userEnrolledCourses)
+            setProgressCourseList(resp.uSerEnrolledCourses)
         })
     }
   return progressCourseList&&(
