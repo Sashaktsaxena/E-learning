@@ -1,16 +1,13 @@
 import { View, Text, FlatList, Dimensions, TouchableOpacity, ScrollView } from 'react-native'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import ProgressBar from './ProgressBar'
 import ContentItem from './ContentItem'
 import Colors from '../../Utils/Colors'
 import { useNavigation } from '@react-navigation/native'
-import { useEffect } from 'react'
-import { getQuizByCourse } from '../../Services'
+import { getQuizByCourse, getUserQuizAttempts } from '../../Services'
 import { useUser } from '@clerk/clerk-expo'
 
-import { getUserQuizAttempts } from '../../Services'
 export default function Content({ content, courseId, chap, currentchap, onChapterFinish}) {
-
     let contentRef;
     
     const navigation = useNavigation();
@@ -18,18 +15,20 @@ export default function Content({ content, courseId, chap, currentchap, onChapte
     const [quiz, setQuiz] = useState(null);
     const [quizAttempted, setQuizAttempted] = useState(false);
     const [isLastChapter, setIsLastChapter] = useState(false);
+    const [currentChapterIndex, setCurrentChapterIndex] = useState(-1);
     const { user } = useUser();
 
     useEffect(() => {
         // Determine if the current chapter is the last one in the course
         if (chap && Array.isArray(chap) && chap.length > 0 && currentchap) {
             // Find the current chapter's index in the chap array
-            const currentChapterIndex = chap.findIndex(chapter => chapter.id === currentchap);
+            const chapIndex = chap.findIndex(chapter => chapter.id === currentchap);
             
             // If it's the last item in the array, it's the last chapter
-            if (currentChapterIndex !== -1) {
-                setIsLastChapter(currentChapterIndex === chap.length - 1);
-                console.log("Is last chapter:", currentChapterIndex === chap.length - 1);
+            if (chapIndex !== -1) {
+                setCurrentChapterIndex(chapIndex);
+                setIsLastChapter(chapIndex === chap.length - 1);
+                console.log("Is last chapter:", chapIndex === chap.length - 1);
             }
         }
 
@@ -37,7 +36,7 @@ export default function Content({ content, courseId, chap, currentchap, onChapte
         const fetchQuizAndAttempts = async () => {
             if (!courseId) return;
             try {
-                // Fetch quiz 
+                // Fetch quiz
                 console.log("this is chapter description ", chap);
                 const quizData = await getQuizByCourse(courseId);
                 if (quizData.quizzes && quizData.quizzes.length > 0) {
@@ -47,9 +46,9 @@ export default function Content({ content, courseId, chap, currentchap, onChapte
                     const userEmail = user.primaryEmailAddress.emailAddress;
                     const attempts = await getUserQuizAttempts(userEmail, courseId);
                     
-                    // if (attempts && attempts.userQuizAttempts && attempts.userQuizAttempts.length > 0) {
-                    //     setQuizAttempted(true);
-                    // }
+                    if (attempts && attempts.userQuizAttempts && attempts.userQuizAttempts.length > 0) {
+                        setQuizAttempted(true);
+                    }
                 }
             } catch (error) {
                 console.error('Error fetching quiz data:', error);
@@ -59,15 +58,15 @@ export default function Content({ content, courseId, chap, currentchap, onChapte
         fetchQuizAndAttempts();
     }, [courseId, chap, currentchap]);
 
-    // Modified for better clarity and control of quiz navigation
-    const onNextBtnPress = (index) => {
-        
-        const isLastContent = index === content?.length - 1;
-        
-        if (isLastContent) {
-            // This is the last content item
-            if (isLastChapter && quiz && quiz.questions && quiz.questions.length > 0 && !quizAttempted) {
-                // Only navigate to quiz if this is the last chapter, quiz exists, and not already attempted
+    // Fixed to handle chapter completion instead of scrolling between content items
+    const onNextBtnPress = () => {
+        // Since the FlatList only has one item (content.length = 1),
+        // we don't actually scroll through content items, but complete the chapter
+
+        // Complete the current chapter
+        if (isLastChapter) {
+            if (quiz && quiz.questions && quiz.questions.length > 0 && !quizAttempted) {
+                // Navigate to quiz if it exists and hasn't been attempted
                 navigation.navigate('QuizScreen', {
                     quiz: quiz,
                     courseId: courseId,
@@ -82,29 +81,28 @@ export default function Content({ content, courseId, chap, currentchap, onChapte
                     }
                 });
             } else {
-                // If it's not the last chapter or no quiz available, just finish the chapter
-                console.log("Not last chapter or no quiz available, finishing chapter");
+                // If no quiz available or already attempted, just finish the chapter
+                console.log("No quiz available or already attempted, finishing chapter");
                 navigation.goBack();
                 onChapterFinish();
             }
-            return;
+        } else {
+            // Not the last chapter, just finish this chapter and go back
+            navigation.goBack();
+            onChapterFinish();
         }
-        
-        // Not the last content, move to next content
-        setActiveIndex(index + 1);
-        contentRef.scrollToIndex({ animated: true, index: index + 1 });
     }
 
-    // Determine if it's the final content item of the final chapter
-    const isFinalQuizButton = (index) => {
-        return index === content?.length - 1 && isLastChapter && quiz && quiz.questions && quiz.questions.length > 0 && !quizAttempted;
+    // Determine if it's the final chapter and we should show quiz button
+    const shouldShowQuizButton = () => {
+        return isLastChapter && quiz && quiz.questions && quiz.questions.length > 0 && !quizAttempted;
     }
 
     return (
         <View style={{ padding: 0, height:'100%' }}>
             <ProgressBar
                 contentLength={chap?.length}
-                contentIndex={activeIndex}
+                contentIndex={currentChapterIndex}
             />
 
             <FlatList
@@ -115,9 +113,12 @@ export default function Content({ content, courseId, chap, currentchap, onChapte
                 ref={(ref) => {
                     contentRef = ref
                 }}
-                renderItem={({ item, index }) => {
-                    const isLastItem = index === content?.length - 1;
-                    const showQuizButton = isFinalQuizButton(index);
+                renderItem={({ item }) => {
+                    // Determine button text based on chapter position
+                    const showQuizButton = shouldShowQuizButton();
+                    const buttonText = isLastChapter 
+                        ? (showQuizButton ? 'Take Quiz' : 'Finish') 
+                        : 'Next';
                     
                     return (
                         <View>
@@ -144,7 +145,7 @@ export default function Content({ content, courseId, chap, currentchap, onChapte
                                     marginRight: 20,
                                     width: '90%'
                                 }}
-                                onPress={() => onNextBtnPress(index)}
+                                onPress={onNextBtnPress}
                             >
                                 <Text style={{
                                     padding: 15,
@@ -155,9 +156,7 @@ export default function Content({ content, courseId, chap, currentchap, onChapte
                                     fontSize: 17,
                                     borderRadius: 10
                                 }}>
-                                    {isLastItem 
-                                        ? (showQuizButton ? 'Take Quiz' : 'Finish') 
-                                        : 'Next'}
+                                    {buttonText}
                                 </Text>
                             </TouchableOpacity>
                         </View>
