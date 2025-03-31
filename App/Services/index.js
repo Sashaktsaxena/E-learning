@@ -60,7 +60,6 @@ export const enrollCourse=async(courseId,userEmail)=>{
     }
   }
   `
-
   const result=await request(MASTER_URL,mutationQuery);
     return result;
 }
@@ -215,3 +214,208 @@ export const GetAllProgressCourse=async(userEmail)=>{
   const result=await request(MASTER_URL,query);
   return result;
 }
+
+
+
+export const getQuizByCourse = async (courseId) => {
+  const query = gql`
+  query GetCourseQuiz {
+    quizzes(where: { course: { id: "${courseId}" } }) {
+      id
+      title
+      description
+      questions {
+        id
+        questionText
+        options {
+          id
+          optionText
+        }
+        correctOptionId
+      }
+    }
+  }
+  `;
+
+  const result = await request(MASTER_URL, query);
+  return result;
+};
+
+// export const submitQuizAttempt = async (userEmail, quizId, score, totalQuestions) => {
+//   // Get current date in ISO format for DateTime field
+//   const currentDate = new Date().toISOString();
+
+//   const mutationQuery = gql`
+//   mutation SubmitQuizAttempt {
+//     createUserQuizAttempt(
+//       data: {
+//         user: { connect: { email: "${userEmail}" } },
+//         quiz: { connect: { id: "${quizId}" } },
+//         score: ${score},
+//         totalQuestions: ${totalQuestions},
+//         completedAt: "${currentDate}"
+//       }
+//     ) {
+//       id
+//       score
+//     }
+//     publishManyUserQuizAttempts(to: PUBLISHED) {
+//       count
+//     }
+//     updateUserDetail(
+//       where: { email: "${userEmail}" },
+//       data: { point: ${score * 10} }
+//     ) {
+//       point
+//     }
+//     publishUserDetail(where: { email: "${userEmail}" }) {
+//       id
+//     }
+//   }
+//   `;
+
+//   const result = await request(MASTER_URL, mutationQuery);
+//   return result;
+// };
+export const getUserQuizAttempts = async (userEmail, courseId) => {
+  const query = gql`
+  query GetUserQuizAttempts {
+    userQuizAttempts(
+      where: { 
+        user: { email: "${userEmail}" },
+        quiz: { course: { id: "${courseId}" } }
+      }
+    ) {
+      id
+      score
+      totalQuestions
+      completedAt
+      quiz {
+        id
+        title
+      }
+    }
+  }
+  `;
+
+  const result = await request(MASTER_URL, query);
+  return result;
+};
+
+
+export const GetTopQuizPerformers = async (limit = 10) => {
+  const query = gql`
+  query GetTopQuizPerformers {
+    userDetails(
+      orderBy: point_DESC
+      first: ${limit}
+    ) {
+      id
+      profileImage
+      userName
+      point
+      userQuizAttempt {
+        score
+        totalQuestions
+        quiz {
+          title
+        }
+      }
+    }
+  }
+  `;
+  
+  const result = await request(MASTER_URL, query);
+  return result;
+};
+
+export const GetUserQuizPerformance = async (userEmail) => {
+  const query = gql`
+  query GetUserQuizPerformance {
+    userDetail(where: {email: "${userEmail}"}) {
+      id
+      userName
+      point
+      userQuizAttempt {
+        id
+        score
+        totalQuestions
+        completedAt
+        quiz {
+          id
+          title
+          course {
+            id
+            name
+          }
+        }
+      }
+    }
+  }
+  `;
+  
+  const result = await request(MASTER_URL, query);
+  return result;
+};
+
+// Updated the submitQuizAttempt function to better handle points
+export const submitQuizAttempt = async (userEmail, quizId, score, totalQuestions) => {
+  // Get current date in ISO format for DateTime field
+  const currentDate = new Date().toISOString();
+  
+  // Calculate points - base points plus bonus for higher scores
+  const basePoints = 10;
+  const scorePercentage = (score / totalQuestions) * 100;
+  let bonusPoints = 0;
+  
+  if (scorePercentage >= 90) bonusPoints = 15;
+  else if (scorePercentage >= 80) bonusPoints = 10;
+  else if (scorePercentage >= 70) bonusPoints = 5;
+  
+  const totalPointsToAdd = (score * basePoints) + bonusPoints;
+
+  // Get current user points first
+  const userDetailQuery = gql`
+  query GetUserCurrentPoints {
+    userDetail(where: {email: "${userEmail}"}) {
+      point
+    }
+  }
+  `;
+  
+  const userDetail = await request(MASTER_URL, userDetailQuery);
+  const currentPoints = userDetail.userDetail ? userDetail.userDetail.point || 0 : 0;
+  const newTotalPoints = currentPoints + totalPointsToAdd;
+
+  const mutationQuery = gql`
+  mutation SubmitQuizAttempt {
+    createUserQuizAttempt(
+      data: {
+        user: { connect: { email: "${userEmail}" } },
+        quiz: { connect: { id: "${quizId}" } },
+        score: ${score},
+        totalQuestions: ${totalQuestions},
+        completedAt: "${currentDate}"
+      }
+    ) {
+      id
+      score
+    }
+    publishManyUserQuizAttempts(to: PUBLISHED) {
+      count
+    }
+    updateUserDetail(
+      where: { email: "${userEmail}" },
+      data: { point: ${newTotalPoints} }
+    ) {
+      point
+    }
+    publishUserDetail(where: { email: "${userEmail}" }) {
+      id
+    }
+  }
+  `;
+
+  const result = await request(MASTER_URL, mutationQuery);
+  return result;
+};

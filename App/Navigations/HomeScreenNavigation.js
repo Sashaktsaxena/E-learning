@@ -5,8 +5,10 @@ import HomeScreen from '../Screen/HomeScreen';
 import CourseDetailScreen from '../Screen/CourseDetailScreen';
 import ChapterContentScreen from '../Screen/ChapterContentScreen';
 import CourseCompletedScreen from '../Screen/CourseCompletedScreen';
+import QuizScreen from '../Screen/QuizScreen'; 
+import QuizResultsScreen from '../Screen/QuizResultsScreen'; // Import QuizResultsScreen
 
-const Stack=createStackNavigator();
+const Stack = createStackNavigator();
 export default function HomeScreenNavigation() {
   return (
     <Stack.Navigator screenOptions={{headerShown:false}}>
@@ -17,7 +19,21 @@ export default function HomeScreenNavigation() {
         <Stack.Screen 
         name="course-complete" 
         component={CourseCompletedScreen} />
-    
+        {/* Quiz Screen */}
+        <Stack.Screen 
+        name="QuizScreen" 
+        component={QuizScreen}
+        options={{
+          headerShown: true,
+          title: "Quiz"
+        }} />
+        {/* Quiz Results Screen */}
+        <Stack.Screen 
+        name="QuizResultsScreen" 
+        component={QuizResultsScreen}
+        options={{
+          headerShown: false
+        }} />
     </Stack.Navigator>
   )
 }

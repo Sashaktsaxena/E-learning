@@ -15,15 +15,19 @@ export default function ChapterSection({chapterList,
   const OnChapterPress=(chapter)=>{
     if(userEnrolledCourse.length==0)
     {
+
       ToastAndroid.show('Please Enroll Course!',ToastAndroid.LONG)
       return ;
     }
     else{
+      console.log ("this is a test ",userEnrolledCourse)
+      console.log('this is a second test ',chapterList)
       setIsChapterComplete(false);
       navigation.navigate('chapter-content',{
         content:chapter.content,
         chapterId:chapter.id,
-        userCourseRecordId:userEnrolledCourse[0]?.id
+        userCourseRecordId:userEnrolledCourse[0]?.courseid,
+        chap:chapterList,
       })
     }
   }

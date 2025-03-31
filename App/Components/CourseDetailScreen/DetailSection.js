@@ -49,6 +49,7 @@ lineHeight:23}}>{course?.description?.markdown}</Text>
             <Text style={{fontFamily:'outfit',
         color:Colors.WHITE,textAlign:'center',fontSize:17}}>Membership $2.99/Mon</Text>
         </TouchableOpacity>
+    
     </View>
     </View>
     </View>

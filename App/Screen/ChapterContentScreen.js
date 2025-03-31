@@ -20,6 +20,8 @@ export default function ChapterContentScreen() {
   useEffect(()=>{
     console.log("ChapterId",param.content.length)
     console.log("RecordId",param.userCourseRecordId)
+    console.log ("this is chapter length ",param.chap)
+    console.log("this is the current chapter id ",param.chapterId)
 
   },[param])
   const onChapterFinish=()=>{
@@ -28,6 +30,7 @@ export default function ChapterContentScreen() {
       user.primaryEmailAddress.emailAddress,totalPoints).then(resp=>{
       if(resp)
       {
+
         ToastAndroid.show('Chapter Completed!',ToastAndroid.LONG)
         setIsChapterComplete(true)
        navigation.goBack();
@@ -37,7 +40,11 @@ export default function ChapterContentScreen() {
   return param.content&&(
     <ScrollView>
       <Content content={param.content}
+            courseId={param.userCourseRecordId}
+            chap={param.chap}
+            currentchap={param.chapterId}
       onChapterFinish={()=>onChapterFinish()
+
       } />
     </ScrollView>
   )
