@@ -41,7 +41,7 @@ export default function ChapterContentScreen() {
     }
     
     console.log("Marking chapter as completed", userPoints);
-    const totalPoints = Number(userPoints);
+    const totalPoints = Number(userPoints)+param.content?.length*10;
     
     MarkChapterCompleted(
       param.chapterId,
