@@ -27,7 +27,9 @@ export default function ChapterSection({chapterList,
         content:chapter.content,
         chapterId:chapter.id,
         userCourseRecordId:userEnrolledCourse[0]?.courseid,
+        recordid:userEnrolledCourse[0]?.id,
         chap:chapterList,
+        completedChapters:userEnrolledCourse[0]?.completedChapter,
       })
     }
   }

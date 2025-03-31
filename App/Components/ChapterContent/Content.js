@@ -152,7 +152,7 @@ export default function Content({ content, courseId, chap, currentchap, onChapte
                                     backgroundColor: Colors.PRIMARY,
                                     color: Colors.WHITE,
                                     textAlign: 'center',
-                                    fontFamily: 'outift',
+                                    fontFamily: 'outfit',
                                     fontSize: 17,
                                     borderRadius: 10
                                 }}>
