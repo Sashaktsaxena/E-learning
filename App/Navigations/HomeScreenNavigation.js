@@ -7,6 +7,7 @@ import ChapterContentScreen from '../Screen/ChapterContentScreen';
 import CourseCompletedScreen from '../Screen/CourseCompletedScreen';
 import QuizScreen from '../Screen/QuizScreen'; 
 import QuizResultsScreen from '../Screen/QuizResultsScreen'; // Import QuizResultsScreen
+import LeaderBoard from '../Screen/LeaderBoard';
 
 const Stack = createStackNavigator();
 export default function HomeScreenNavigation() {
@@ -34,6 +35,7 @@ export default function HomeScreenNavigation() {
         options={{
           headerShown: false
         }} />
+        <Stack.Screen name='LeaderBoard' component={LeaderBoard} />
     </Stack.Navigator>
   )
 }

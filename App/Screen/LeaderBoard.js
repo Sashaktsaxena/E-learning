@@ -42,6 +42,9 @@ export default function LeaderBoard() {
     return null;
   };
 
+  // Default profile image to use when none is available
+  const defaultProfileImage = 'https://via.placeholder.com/60';
+
   return (
     <View style={{flex: 1}}>
       <View style={{
@@ -143,16 +146,30 @@ export default function LeaderBoard() {
                     }}>{index + 1}</Text>
                   </View>
                   
-                  <Image 
-                    source={{uri: item.profileImage}}
-                    style={{
-                      width: 60,
-                      height: 60,
-                      borderRadius: 30,
-                      borderWidth: 2,
-                      borderColor: index < 3 ? Colors.PRIMARY : Colors.LIGHT_GRAY
-                    }}
-                  />
+                  {/* Fixed Image component with proper check for profileImage */}
+                  {item.profileImage && item.profileImage.trim() !== '' ? (
+                    <Image 
+                      source={{uri: item.profileImage}}
+                      style={{
+                        width: 60,
+                        height: 60,
+                        borderRadius: 30,
+                        borderWidth: 2,
+                        borderColor: index < 3 ? Colors.PRIMARY : Colors.LIGHT_GRAY
+                      }}
+                    />
+                  ) : (
+                    <Image 
+                      source={{uri: defaultProfileImage}}
+                      style={{
+                        width: 60,
+                        height: 60,
+                        borderRadius: 30,
+                        borderWidth: 2,
+                        borderColor: index < 3 ? Colors.PRIMARY : Colors.LIGHT_GRAY
+                      }}
+                    />
+                  )}
                   
                   <View>
                     <Text style={{
