@@ -4,7 +4,7 @@ import ProgressBar from './ProgressBar'
 import ContentItem from './ContentItem'
 import Colors from '../../Utils/Colors'
 import { useNavigation } from '@react-navigation/native'
-import { getQuizByCourse, getUserQuizAttempts } from '../../Services'
+import { getQuizByCourse, getUserQuizAttempts, getAllCourses } from '../../Services'
 import { useUser } from '@clerk/clerk-expo'
 
 export default function Content({ content, courseId, chap, currentchap, onChapterFinish}) {
@@ -16,6 +16,7 @@ export default function Content({ content, courseId, chap, currentchap, onChapte
     const [quizAttempted, setQuizAttempted] = useState(false);
     const [isLastChapter, setIsLastChapter] = useState(false);
     const [currentChapterIndex, setCurrentChapterIndex] = useState(-1);
+    const [courseDetails, setCourseDetails] = useState(null);
     const { user } = useUser();
 
     useEffect(() => {
@@ -31,6 +32,25 @@ export default function Content({ content, courseId, chap, currentchap, onChapte
                 console.log("Is last chapter:", chapIndex === chap.length - 1);
             }
         }
+
+        // Fetch course details (for tags and level)
+        const fetchCourseDetails = async () => {
+            if (!courseId) return;
+            try {
+                // Use the new getAllCourses function
+                const response = await getAllCourses();
+                
+                if (response && response.courses) {
+                    const course = response.courses.find(course => course.id === courseId);
+                    if (course) {
+                        setCourseDetails(course);
+                        console.log("Course details fetched:", course.tags, course.level);
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching course details:', error);
+            }
+        };
 
         // Fetch quiz when component mounts
         const fetchQuizAndAttempts = async () => {
@@ -55,10 +75,12 @@ export default function Content({ content, courseId, chap, currentchap, onChapte
             }
         };
     
+        fetchCourseDetails();
         fetchQuizAndAttempts();
     }, [courseId, chap, currentchap]);
 
-    // Fixed to handle chapter completion instead of scrolling between content items
+    // Rest of your component remains the same...
+    
     const onNextBtnPress = () => {
         // Since the FlatList only has one item (content.length = 1),
         // we don't actually scroll through content items, but complete the chapter
@@ -70,6 +92,8 @@ export default function Content({ content, courseId, chap, currentchap, onChapte
                 navigation.navigate('QuizScreen', {
                     quiz: quiz,
                     courseId: courseId,
+                    courseTags: courseDetails?.tags || [],
+                    courseLevel: courseDetails?.level || '',
                     onQuizComplete: (score) => {
                         console.log("Quiz completed with score:", score);
                         setQuizAttempted(true); // Mark quiz as attempted

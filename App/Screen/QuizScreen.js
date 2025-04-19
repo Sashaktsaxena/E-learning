@@ -36,30 +36,35 @@ const QuizScreen = ({ route, navigation }) => {
       setSelectedOption(null);
   } else {
       // Calculate final score (including current question)
-      const finalScore = score + (selectedOption === currentQuestion.correctOptionId ? 1 : 0);
-      
-      // Submit quiz attempt
-      submitQuizAttempt(
-          user.primaryEmailAddress.emailAddress,
-          quiz.id, 
-          finalScore, 
-          quiz.questions.length
-      ).then(() => {
-          // Navigate to results screen
-          navigation.navigate('QuizResultsScreen', {
-              score: finalScore,
-              totalQuestions: quiz.questions.length,
-              quizTitle: quiz.title,
-              onComplete: () => {
-                  if (onQuizComplete) {
-                      onQuizComplete(finalScore);
-                  }
-              }
-          });
-      }).catch(error => {
-          console.error("Error submitting quiz:", error);
-          alert("Failed to submit quiz. Please try again.");
-      });
+// In QuizScreen.js, when navigating to results
+// Calculate final score (including current question)
+const finalScore = score + (selectedOption === currentQuestion.correctOptionId ? 1 : 0);
+
+// Submit quiz attempt
+submitQuizAttempt(
+    user.primaryEmailAddress.emailAddress,
+    quiz.id, 
+    finalScore, 
+    quiz.questions.length
+).then(() => {
+    // Navigate to results screen
+    navigation.navigate('QuizResultsScreen', {
+        score: finalScore,
+        totalQuestions: quiz.questions.length,
+        quizTitle: quiz.title,
+        courseId: courseId,
+        courseTags: route.params.courseTags, // Now passing these from Content component
+        courseLevel: route.params.courseLevel, // Now passing these from Content component
+        onComplete: () => {
+            if (onQuizComplete) {
+                onQuizComplete(finalScore);
+            }
+        }
+    });
+}).catch(error => {
+    console.error("Error submitting quiz:", error);
+    alert("Failed to submit quiz. Please try again.");
+});
   }
 };
   // Safety check if quiz data is not available

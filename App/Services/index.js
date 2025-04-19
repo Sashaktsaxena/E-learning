@@ -3,45 +3,72 @@ import { request, gql } from 'graphql-request'
 const MASTER_URL="https://ap-south-1.cdn.hygraph.com/content/cm85thfvs00kp07wfuncjvdjy/master";
 
 export const getCourseList=async(level)=>{
-    const query=gql`
-    query CourseList {
-        courses(where: {level: `+level+`}) {
-          id
-          name
-          price
-          level
-          tags
-          time
-          author
-          description {
-            markdown
-          }
-          banner {
-            url
-          }
-          chapters {
-            content {
-              heading
-              description {
-                markdown
-                html
-              }
-              output {
-                markdown
-                html
-              }
-            }
-            title
-            id
-          }
+  const query=gql`
+  query CourseList {
+      courses(where: {level: `+level+`}) {
+        id
+        name
+        price
+        level
+        tags
+        time
+        author
+        description {
+          markdown
         }
-      }      
-    `
+        banner {
+          url
+        }
+        chapters {
+          content {
+            heading
+            description {
+              markdown
+              html
+            }
+            output {
+              markdown
+              html
+            }
+          }
+          title
+          id
+        }
+      }
+    }      
+  `
 
-    const result=await request(MASTER_URL,query);
-    return result;
+  const result=await request(MASTER_URL,query);
+  return result;
 }
+export const getAllCourses = async () => {
+  const query = gql`
+    query AllCourses {
+      courses {
+        id
+        name
+        price
+        level
+        tags
+        time
+        author
+        description {
+          markdown
+        }
+        banner {
+          url
+        }
+        chapters {
+          title
+          id
+        }
+      }
+    }
+  `;
 
+  const result = await request(MASTER_URL, query);
+  return result;
+}
 export const enrollCourse=async(courseId,userEmail)=>{
   const mutationQuery=gql`
   mutation MyMutation {
@@ -419,3 +446,161 @@ export const submitQuizAttempt = async (userEmail, quizId, score, totalQuestions
   const result = await request(MASTER_URL, mutationQuery);
   return result;
 };
+export const getRecommendedCourses = async (courseTags, courseLevel, courseId) => {
+  // Normalize level to match the exact enum format
+  const normalizedLevel = courseLevel.toLowerCase();
+  
+  // Build the query using courseTags directly
+  const query = gql`
+    query GetRecommendedCourses {
+      courses(
+        where: {
+          level: ${normalizedLevel},
+          tags:${courseTags},
+          id_not: "${courseId}"
+        },
+        first: 3
+      ) {
+        id
+        name
+        price
+        level
+        tags
+        time
+        author
+        banner {
+          url
+        }
+        description {
+          markdown
+        }
+      }
+    }
+  `;
+  
+  const result = await request(MASTER_URL, query);
+  return result;
+};
+
+// export const getRecommendedCourses = async (courseTags, courseLevel, courseId) => {
+//   // Normalize level to match the exact enum format
+//   const normalizedLevel = courseLevel.toLowerCase();
+  
+//   // Build the query using courseTags directly
+//   const query = gql`
+//     query GetRecommendedCourses {
+//       courses(
+//         where: {
+//           level: ${normalizedLevel},
+//           ${courseTags ? `tags_contains_all: ["${courseTags}"],` : ''}
+//           id_not: "${courseId}"
+//         },
+//         first: 3
+//       ) {
+//         id
+//         name
+//         price
+//         level
+//         tags
+//         time
+//         author
+//         banner {
+//           url
+//         }
+//         description {
+//           markdown
+//         }
+//       }
+//     }
+//   `;
+  
+//   const result = await request(MASTER_URL, query);
+//   return result;
+// };
+
+// export const getRecommendedCourses = async (courseTags, courseLevel, courseId) => {
+//   // Determine the recommended level (opposite of current level)
+
+  
+//   // Build the query using the same structure that was working before
+//   const query = gql`
+//     query GetRecommendedCourses {
+//       courses(
+//         where: {
+//           level: ${courseLevel},
+//           ${courseTags ? `tags_contains_all: ["${courseTags}"],` : ''}
+//           id_not: "${courseId}"
+//         },
+//         first: 3
+//       ) {
+//         id
+//         name
+//         price
+//         level
+//         tags
+//         time
+//         author
+//         banner {
+//           url
+//         }
+//         description {
+//           markdown
+//         }
+//       }
+//     }
+//   `;
+  
+//   try {
+//     const result = await request(MASTER_URL, query);
+    
+//     // If no courses found with the first query, try a fallback query
+//     // without the tag requirement
+//     if (!result.courses || result.courses.length === 0) {
+//       const fallbackQuery = gql`
+//         query GetRecommendedCoursesFallback {
+//           courses(
+//             where: {
+//               level: ${courseLevel},
+//               id_not: "${courseId}"
+//             },
+//             first: 3
+//           ) {
+//             id
+//             name
+//             price
+//             level
+//             tags
+//             time
+//             author
+//             banner {
+//               url
+//             }
+//             description {
+//               markdown
+//             }
+//           }
+//         }
+//       `;
+      
+//       const fallbackResult = await request(MASTER_URL, fallbackQuery);
+      
+//       // If we still don't have courses, return an empty array with a message
+//       if (!fallbackResult.courses || fallbackResult.courses.length === 0) {
+//         return { 
+//           courses: [],
+//           message: "No suitable courses available at the moment."
+//         };
+//       }
+      
+//       return fallbackResult;
+//     }
+    
+//     return result;
+//   } catch (error) {
+//     console.error("Error fetching recommended courses:", error);
+//     return { 
+//       courses: [],
+//       message: "Error fetching course recommendations."
+//     };
+//   }
+// };

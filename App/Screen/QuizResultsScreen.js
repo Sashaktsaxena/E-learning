@@ -9,8 +9,9 @@ import {
   ActivityIndicator
 } from 'react-native';
 import Colors from '../Utils/Colors';
-import { getUserQuizAttempts, GetUserQuizPerformance } from '../Services';
+import { getUserQuizAttempts, GetUserQuizPerformance,getRecommendedCourses } from '../Services';
 import { useUser } from '@clerk/clerk-expo';
+import { FlatList } from 'react-native';
 
 const QuizResultsScreen = ({ route, navigation }) => {
   const { score, totalQuestions, quizTitle, courseId } = route.params;
@@ -18,15 +19,50 @@ const QuizResultsScreen = ({ route, navigation }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [userPerformance, setUserPerformance] = useState(null);
   const { user } = useUser();
-  
+  const [recommendedCourses, setRecommendedCourses] = useState([]);
   const percentScore = Math.round((score / totalQuestions) * 100);
   
   useEffect(() => {
     if (user && user.primaryEmailAddress) {
       fetchUserPerformance();
     }
+    if (percentScore < 60) {
+      fetchRecommendedCourses();
+    }
   }, [user]);
+  const fetchRecommendedCourses = async () => {
+    try {
+      const { courseTags, courseLevel, courseId } = route.params;
   
+      console.log("Course Tags:", courseTags, "Course Level:", courseLevel, "Course ID:", courseId);
+      if (!courseLevel || !courseId) {
+        console.log("Missing course details for recommendations");
+        return;
+      }
+      
+      // Create a new variable instead of modifying courseLevel directly
+      let recommendedLevel = courseLevel;
+      if(courseLevel === 'basic'){
+        recommendedLevel = 'advance';
+      } else if(courseLevel === 'advance'){
+        recommendedLevel = 'basic';
+      }
+      
+      console.log("Course Tags:", courseTags, "Recommended Level:", recommendedLevel, "Course ID:", courseId);
+      const response = await getRecommendedCourses(
+        courseTags,
+        recommendedLevel, // Use the new variable
+        courseId
+      );
+      
+      if (response && response.courses) {
+        setRecommendedCourses(response.courses);
+        console.log("Recommended courses fetched:", response.courses.length);
+      }
+    } catch (error) {
+      console.error('Error fetching recommended courses:', error);
+    }
+  };
   const fetchUserPerformance = async () => {
     try {
       setIsLoading(true);
@@ -82,6 +118,28 @@ const QuizResultsScreen = ({ route, navigation }) => {
     if (percentScore >= 40) return "Not bad!";
     return "Keep practicing!";
   };
+  const renderCourseItem = ({ item }) => (
+    <TouchableOpacity 
+      style={styles.courseCard}
+      onPress={() => navigation.navigate('couse-detail', { course: item })}
+    >
+      <Image 
+        source={{ uri: item.banner?.url }} 
+        style={styles.courseBanner}
+        resizeMode="cover"
+      />
+      <View style={styles.courseInfo}>
+        <Text style={styles.courseName}>{item.name}</Text>
+        <Text style={styles.courseLevel}>{item.level}</Text>
+        <View style={styles.courseMetaContainer}>
+          <Text style={styles.coursePrice}>${item.price}</Text>
+          <Text style={styles.courseTime}>{item.time}</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+  
+  // Add this section before the buttonContainer in the return statement
 
   return (
     <SafeAreaView style={styles.container}>
@@ -132,7 +190,25 @@ const QuizResultsScreen = ({ route, navigation }) => {
           </TouchableOpacity>
         </View>
       ) : null}
-      
+        {percentScore < 60 && recommendedCourses.length > 0 && (
+    <View style={styles.recommendedSection}>
+      <Text style={styles.recommendedTitle}>Recommended for You</Text>
+      <Text style={styles.recommendedSubtitle}>
+        These courses might help you improve your skills
+      </Text>
+      <FlatList
+        data={recommendedCourses}
+        renderItem={renderCourseItem}
+        keyExtractor={(item) => item.id}
+        horizontal={false}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.courseList}
+      />
+    </View>
+  )}
+  
+
+
       <View style={styles.buttonContainer}>
         {/* <TouchableOpacity
           style={styles.buttonPrimary}
@@ -316,6 +392,66 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 10,
+    fontFamily: 'outfit',
+    color: Colors.GRAY,
+  },
+  recommendedSection: {
+    width: '100%',
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  recommendedTitle: {
+    fontSize: 20,
+    fontFamily: 'outfit-bold',
+    marginBottom: 5,
+    color: Colors.BLACK,
+  },
+  recommendedSubtitle: {
+    fontSize: 14,
+    fontFamily: 'outfit',
+    marginBottom: 15,
+    color: Colors.GRAY,
+  },
+  courseList: {
+    paddingBottom: 10,
+  },
+  courseCard: {
+    backgroundColor: Colors.WHITE,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: Colors.LIGHT_GRAY,
+  },
+  courseBanner: {
+    width: '100%',
+    height: 120,
+  },
+  courseInfo: {
+    padding: 12,
+  },
+  courseName: {
+    fontSize: 16,
+    fontFamily: 'outfit-bold',
+    marginBottom: 5,
+  },
+  courseLevel: {
+    fontSize: 14,
+    fontFamily: 'outfit',
+    color: Colors.PRIMARY,
+    marginBottom: 5,
+  },
+  courseMetaContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  coursePrice: {
+    fontSize: 14,
+    fontFamily: 'outfit-medium',
+    color: Colors.BLACK,
+  },
+  courseTime: {
+    fontSize: 14,
     fontFamily: 'outfit',
     color: Colors.GRAY,
   },
