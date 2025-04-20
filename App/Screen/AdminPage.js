@@ -2,28 +2,31 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Alert, Act
 import React, { useState, useEffect } from 'react'
 import Colors from '../Utils/Colors'
 import { gql, request } from 'graphql-request'
-import axios from 'axios'; // You'll need to install this package
+import axios from 'axios';
 import { Linking } from 'react-native';
 
 export default function AdminPage({ onLogout }) {
   const [courseData, setCourseData] = useState([]);
   const [users, setUsers] = useState([]);
   const [userCount, setUserCount] = useState(0);
-  const [enrollmentCount, setEnrollmentCount] = useState(156);
+  const [enrollmentCount, setEnrollmentCount] = useState(0);
+  const [enrollmentData, setEnrollmentData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userLoading, setUserLoading] = useState(true);
+  const [enrollmentLoading, setEnrollmentLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  
   const MASTER_URL="https://ap-south-1.cdn.hygraph.com/content/cm85thfvs00kp07wfuncjvdjy/master";
   const API_TOKEN = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImdjbXMtbWFpbi1wcm9kdWN0aW9uIn0.eyJ2ZXJzaW9uIjozLCJpYXQiOjE3NDQ0ODExODAsImF1ZCI6WyJodHRwczovL2FwaS1hcC1zb3V0aC0xLmh5Z3JhcGguY29tL3YyL2NtODV0aGZ2czAwa3AwN3dmdW5janZkankvbWFzdGVyIiwibWFuYWdlbWVudC1uZXh0LmdyYXBoY21zLmNvbSJdLCJpc3MiOiJodHRwczovL21hbmFnZW1lbnQtYXAtc291dGgtMS5oeWdyYXBoLmNvbS8iLCJzdWIiOiJjNjdjOWZkOS0zMWIxLTRhMTItYTIwOS0xY2NmN2ZiYTdhYzIiLCJqdGkiOiJjbTllajF4bjMwcHpjMDdvNzVkOWk3bnBnIn0.v4vvRQjbrlGSDMMVxUISMdLvUIAFnRP_31kU3uCYNJnN68lDXJbKAuhIfDNpECQt99zBMk5dz9bkYNrvWeBaXA08q_rzuWiuwlpFT_JsgdNLM88nEy__OPffBXgh90vbWSHQgycj9ME9OMnqB3aECbxERSLvTEjZidVuo1p4wagRouaw2rh1t7Md1VE69VUc_IPCSNskHXVQJ7AO3h5fMph723szvYYgiZwzggXY6StSDNCBJLKOlUtaPOHiiIN4Si5uudI5w6xrsRkZPUzCQIMbzx03LNGRCq_xQ7WWkek7rGY1pvd5GXb5nAaD95AtK1a8dU0pnU14xNs5mfc3gmJOiBlXQ_ELcLt5J63ZgFTHPgDUqX5KhxliT4UTWho1akHyukXw4GLSLsOynhcGnPefxp_mwXM1gqBBoOsk6xPZ381TazC5MywBCjtcvEs6pIXQRoDx6ZD3F7A2Th5ydyFV3cW4x6_ylkD9P2GGJpKxaUtNu1YV93N-a39OU0yhvCTEwW0HUprgiqwQraKJ7nkbmqwCtXvv9x738uELY-NJ6fJ78lYCokEBOhlnrSpI5IIWdrw67YaWEmFAZTfO3Sj0zeJP4G1paby-em7GDzFfEJuxMPwFAaZ-ECyPWzFaPXxPfACTFl4zoQ6PHneZKCrJUmxdp1PE6xaD2SAn0rE";
 
   // Clerk API Configuration
-  // You'll need to get these values from your Clerk Dashboard
-  const CLERK_API_KEY = "sk_test_b2MrhHg7HjYIx4yyhXwP2cR7bROgsyVzwlbqtVMe34"; // Replace with your actual key
-  const CLERK_API_BASE = "https://api.clerk.com/v1"; // Base URL for Clerk API
+  const CLERK_API_KEY = "sk_test_b2MrhHg7HjYIx4yyhXwP2cR7bROgsyVzwlbqtVMe34";
+  const CLERK_API_BASE = "https://api.clerk.com/v1";
 
   useEffect(() => {
     getAllCourses();
     fetchClerkUsers();
+    getAllEnrollments();
   }, []);
 
   // Helper function for making authenticated requests to GraphQL
@@ -33,6 +36,55 @@ export default function AdminPage({ onLogout }) {
     };
     
     return request(MASTER_URL, query, variables, headers);
+  };
+
+  // Updated function to get all enrollments at once
+  const getAllEnrollments = async () => {
+    try {
+      setEnrollmentLoading(true);
+      
+      // Use a GraphQL query to fetch all enrollments in one go
+      const query = gql`
+        query GetAllEnrollments {
+          uSerEnrolledCourses {
+            id
+            courseid
+            userEmail
+            completedChapter {
+              chapterid
+              id
+            }
+            course {
+              id
+              name
+              level
+              author
+              banner {
+                url
+              }
+            }
+          }
+        }
+      `;
+      
+      const result = await authenticatedRequest(query);
+      
+      if (result?.uSerEnrolledCourses) {
+        setEnrollmentData(result.uSerEnrolledCourses);
+        setEnrollmentCount(result.uSerEnrolledCourses.length);
+        console.log("Enrollments fetched:", result.uSerEnrolledCourses.length);
+      } else {
+        console.log("No enrollments found in response");
+        setEnrollmentData([]);
+        setEnrollmentCount(0);
+      }
+      
+    } catch (error) {
+      console.error("Error fetching all enrollments:", error);
+      Alert.alert("Error", "Failed to load enrollment data.");
+    } finally {
+      setEnrollmentLoading(false);
+    }
   };
 
   // Fetch users from Clerk API
@@ -49,7 +101,7 @@ export default function AdminPage({ onLogout }) {
       });
       
       // Check if response data exists and has the expected format
-      console.log("Clerk API response:", response.data);
+      console.log("Clerk API response received");
       
       // The response appears to directly contain the user array
       if (Array.isArray(response.data)) {
@@ -72,6 +124,7 @@ export default function AdminPage({ onLogout }) {
       setUserLoading(false);
     }
   };
+
   const getAllCourses = async () => {
     try {
       setLoading(true);
@@ -202,11 +255,71 @@ export default function AdminPage({ onLogout }) {
     }
   };
 
+  // Function to handle deleting enrollment
+  const handleDeleteEnrollment = (enrollmentId) => {
+    Alert.alert(
+      "Delete Enrollment",
+      "Are you sure you want to delete this enrollment?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => deleteEnrollment(enrollmentId)
+        }
+      ]
+    );
+  };
+
+  const deleteEnrollment = async (enrollmentId) => {
+    try {
+      // First unpublish
+      const unpublishMutation = gql`
+        mutation UnpublishEnrollment {
+          unpublishUserEnrolledCourse(where: { id: "${enrollmentId}" }) {
+            id
+          }
+        }
+      `;
+      
+      await authenticatedRequest(unpublishMutation);
+      
+      // Then delete
+      const deleteMutation = gql`
+        mutation DeleteEnrollment {
+          deleteUserEnrolledCourse(where: { id: "${enrollmentId}" }) {
+            id
+          }
+        }
+      `;
+      
+      await authenticatedRequest(deleteMutation);
+      
+      // Update UI
+      setEnrollmentData(current => current.filter(item => item.id !== enrollmentId));
+      setEnrollmentCount(prev => prev - 1);
+      Alert.alert("Success", "Enrollment successfully deleted");
+      
+    } catch (error) {
+      console.error("Error deleting enrollment:", error);
+      Alert.alert("Error", "Failed to delete enrollment. Please try again.");
+    }
+  };
+
   // Optional: Navigate to view user details
   const handleViewUserDetails = (userId) => {
-    // Navigate to a user details screen or show user details in a modal
     Alert.alert("View User", `Viewing details for user ID: ${userId}`);
-    // You could implement a navigation to a user details screen here
+  };
+
+  // Simple helper to safely get user email
+  const getUserEmail = (user) => {
+    if (user.email_addresses && user.email_addresses.length > 0) {
+      return user.email_addresses[0].email_address;
+    }
+    return "No email";
   };
 
   return (
@@ -230,10 +343,81 @@ export default function AdminPage({ onLogout }) {
           </View>
           
           <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{enrollmentCount}</Text>
+            {enrollmentLoading ? (
+              <ActivityIndicator color={Colors.PRIMARY} />
+            ) : (
+              <Text style={styles.statNumber}>{enrollmentCount}</Text>
+            )}
             <Text style={styles.statLabel}>Enrollments</Text>
           </View>
         </View>
+
+        {/* Enrollments Section */}
+        <Text style={styles.sectionTitle}>Enrollment Data</Text>
+        
+        {enrollmentLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={Colors.PRIMARY} />
+            <Text style={styles.loadingText}>Loading enrollments...</Text>
+          </View>
+        ) : (
+          <View style={styles.enrollmentList}>
+            {enrollmentData.length > 0 ? (
+              enrollmentData.map(enrollment => (
+                <View key={enrollment.id} style={styles.enrollmentCard}>
+                  <View style={styles.enrollmentHeader}>
+                    <Text style={styles.enrollmentEmail}>{enrollment.userEmail}</Text>
+                    <TouchableOpacity
+                      style={styles.deleteButton}
+                      onPress={() => handleDeleteEnrollment(enrollment.id)}
+                    >
+                      <Text style={styles.deleteButtonText}>Remove</Text>
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <View style={styles.enrollmentCourseInfo}>
+                    {enrollment.course?.banner?.url && (
+                      <Image 
+                        source={{ uri: enrollment.course.banner.url }} 
+                        style={styles.enrollmentCourseBanner}
+                      />
+                    )}
+                    <View style={styles.enrollmentCourseDetails}>
+                      <Text style={styles.enrollmentCourseName}>
+                        {enrollment.course?.name || "Unnamed Course"}
+                      </Text>
+                      <Text style={styles.enrollmentCourseAuthor}>
+                        By {enrollment.course?.author || "Unknown Author"}
+                      </Text>
+                      {enrollment.course?.level && (
+                        <Text style={styles.enrollmentCourseLevel}>
+                          {enrollment.course.level}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                  
+                  <View style={styles.enrollmentProgress}>
+                    <Text style={styles.enrollmentProgressTitle}>Completed Chapters:</Text>
+                    {enrollment.completedChapter && enrollment.completedChapter.length > 0 ? (
+                      <View style={styles.completedChaptersList}>
+                        {enrollment.completedChapter.map(chapter => (
+                          <Text key={chapter.id} style={styles.completedChapter}>
+                            • Chapter ID: {chapter.chapterid}
+                          </Text>
+                        ))}
+                      </View>
+                    ) : (
+                      <Text style={styles.noCompletedChapters}>No chapters completed yet</Text>
+                    )}
+                  </View>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.noEnrollments}>No enrollments available</Text>
+            )}
+          </View>
+        )}
 
         {/* User Section */}
         <Text style={styles.sectionTitle}>User List</Text>
@@ -256,7 +440,7 @@ export default function AdminPage({ onLogout }) {
                   ) : (
                     <View style={styles.userAvatarPlaceholder}>
                       <Text style={styles.userAvatarText}>
-                        {user.first_name?.[0] || user.email?.[0] || "?"}
+                        {user.first_name?.[0] || (user.email_addresses?.[0]?.email_address?.[0] || "?")}
                       </Text>
                     </View>
                   )}
@@ -265,9 +449,9 @@ export default function AdminPage({ onLogout }) {
                     <Text style={styles.userName}>
                       {user.first_name && user.last_name 
                         ? `${user.first_name} ${user.last_name}`
-                        : user.email || "Unnamed User"}
+                        : getUserEmail(user) || "Unnamed User"}
                     </Text>
-                    <Text style={styles.userEmail}>{user.email}</Text>
+                    <Text style={styles.userEmail}>{getUserEmail(user)}</Text>
                     <Text style={styles.userJoined}>
                       Joined: {new Date(user.created_at).toLocaleDateString()}
                     </Text>
@@ -288,19 +472,17 @@ export default function AdminPage({ onLogout }) {
         )}
 
         {/* Course Section */}
-        {/* Course Section */}
         <View style={styles.sectionHeaderContainer}>
-  <Text style={styles.sectionTitle}>Course List</Text>
-  <TouchableOpacity 
-    style={styles.addCourseButton}
-    onPress={() => {
-      Linking.openURL('https://studio-ap-south-1.hygraph.com/34845c55-b830-4086-89ad-1161391d75aa/9656e18623e44d9fb6651680a12c45ad');
-    }}
-  >
-    <Text style={styles.addCourseButtonText}>+ Add New Course</Text>
-  </TouchableOpacity>
-</View>
-        <Text style={styles.sectionTitle}>Course List</Text>
+          <Text style={styles.sectionTitle}>Course List</Text>
+          <TouchableOpacity 
+            style={styles.addCourseButton}
+            onPress={() => {
+              Linking.openURL('https://studio-ap-south-1.hygraph.com/34845c55-b830-4086-89ad-1161391d75aa/9656e18623e44d9fb6651680a12c45ad');
+            }}
+          >
+            <Text style={styles.addCourseButtonText}>+ Add New Course</Text>
+          </TouchableOpacity>
+        </View>
         
         {loading ? (
           <View style={styles.loadingContainer}>
@@ -360,37 +542,6 @@ export default function AdminPage({ onLogout }) {
       </View>
     </ScrollView>
   )
-}
-const additionalStyles = {
-  sectionHeaderContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
-    marginTop: 30,
-    marginBottom: 15,
-  },
-  addCourseButton: {
-    backgroundColor: Colors.PRIMARY,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  addCourseButtonText: {
-    color: Colors.WHITE,
-    fontFamily: 'outfit-medium',
-    fontSize: 16,
-  }
 }
 const styles = StyleSheet.create({
   scrollView: {
@@ -460,6 +611,104 @@ const styles = StyleSheet.create({
     fontFamily: 'outfit',
     color: '#666',
     marginTop: 10
+  },
+  // Enrollment styles
+  enrollmentList: {
+    width: '100%',
+  },
+  enrollmentCard: {
+    backgroundColor: Colors.WHITE,
+    borderRadius: 12,
+    marginBottom: 16,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 3,
+  },
+  enrollmentHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    paddingBottom: 8
+  },
+  enrollmentEmail: {
+    fontSize: 16,
+    fontFamily: 'outfit-bold',
+    color: Colors.PRIMARY
+  },
+  enrollmentCourseInfo: {
+    flexDirection: 'row',
+    marginBottom: 12
+  },
+  enrollmentCourseBanner: {
+    width: 80,
+    height: 60,
+    borderRadius: 8,
+    marginRight: 12
+  },
+  enrollmentCourseDetails: {
+    flex: 1
+  },
+  enrollmentCourseName: {
+    fontSize: 16,
+    fontFamily: 'outfit-bold',
+    color: '#333',
+    marginBottom: 4
+  },
+  enrollmentCourseAuthor: {
+    fontSize: 14,
+    fontFamily: 'outfit',
+    color: '#666',
+    marginBottom: 4
+  },
+  enrollmentCourseLevel: {
+    fontSize: 12,
+    fontFamily: 'outfit-medium',
+    color: Colors.PRIMARY,
+    backgroundColor: `${Colors.PRIMARY}22`,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    alignSelf: 'flex-start'
+  },
+  enrollmentProgress: {
+    marginTop: 8
+  },
+  enrollmentProgressTitle: {
+    fontSize: 14,
+    fontFamily: 'outfit-medium',
+    color: '#444',
+    marginBottom: 6
+  },
+  completedChaptersList: {
+    paddingLeft: 4
+  },
+  completedChapter: {
+    fontSize: 14,
+    fontFamily: 'outfit',
+    color: '#555',
+    marginBottom: 3
+  },
+  noCompletedChapters: {
+    fontSize: 14,
+    fontFamily: 'outfit-italic',
+    color: '#888',
+    fontStyle: 'italic'
+  },
+  noEnrollments: {
+    fontSize: 16,
+    fontFamily: 'outfit',
+    color: '#666',
+    marginVertical: 20,
+    alignSelf: 'center'
   },
   noCourses: {
     fontSize: 16,
@@ -646,7 +895,33 @@ const styles = StyleSheet.create({
     fontFamily: 'outfit',
     fontSize: 12
   },
-  sectionHeaderContainer: additionalStyles.sectionHeaderContainer,
-  addCourseButton: additionalStyles.addCourseButton,
-  addCourseButtonText: additionalStyles.addCourseButtonText,
-})
+  sectionHeaderContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    marginTop: 30,
+    marginBottom: 15,
+  },
+  addCourseButton: {
+    backgroundColor: Colors.PRIMARY,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  addCourseButtonText: {
+    color: Colors.WHITE,
+    fontFamily: 'outfit-medium',
+    fontSize: 16,
+  }
+});
