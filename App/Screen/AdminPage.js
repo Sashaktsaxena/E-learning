@@ -11,9 +11,11 @@ export default function AdminPage({ onLogout }) {
   const [userCount, setUserCount] = useState(0);
   const [enrollmentCount, setEnrollmentCount] = useState(0);
   const [enrollmentData, setEnrollmentData] = useState([]);
+  const [quizAttemptData, setQuizAttemptData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userLoading, setUserLoading] = useState(true);
   const [enrollmentLoading, setEnrollmentLoading] = useState(true);
+  const [quizLoading, setQuizLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   
   const MASTER_URL="https://ap-south-1.cdn.hygraph.com/content/cm85thfvs00kp07wfuncjvdjy/master";
@@ -27,6 +29,7 @@ export default function AdminPage({ onLogout }) {
     getAllCourses();
     fetchClerkUsers();
     getAllEnrollments();
+    getAllQuizAttempts();
   }, []);
 
   // Helper function for making authenticated requests to GraphQL
@@ -36,6 +39,78 @@ export default function AdminPage({ onLogout }) {
     };
     
     return request(MASTER_URL, query, variables, headers);
+  };
+
+  // Function to get all quiz attempts
+  const getAllQuizAttempts = async () => {
+    try {
+      setQuizLoading(true);
+      
+      // Query all quiz attempts
+      const query = gql`
+        query GetAllQuizAttempts {
+          userQuizAttempts {
+            id
+            score
+            totalQuestions
+            completedAt
+            user {
+              email
+            }
+            quiz {
+              id
+              title
+              course {
+                id
+                name
+              }
+            }
+          }
+        }
+      `;
+      
+      const result = await authenticatedRequest(query);
+      
+      if (result?.userQuizAttempts) {
+        setQuizAttemptData(result.userQuizAttempts);
+        console.log("Quiz attempts fetched:", result.userQuizAttempts.length);
+      } else {
+        console.log("No quiz attempts found in response");
+        setQuizAttemptData([]);
+      }
+      
+    } catch (error) {
+      console.error("Error fetching quiz attempts:", error);
+      Alert.alert("Error", "Failed to load quiz attempt data.");
+    } finally {
+      setQuizLoading(false);
+    }
+  };
+
+  // Function to get specific user quiz attempts
+  const getUserQuizAttempts = async (userEmail, courseId) => {
+    const query = gql`
+    query GetUserQuizAttempts {
+      userQuizAttempts(
+        where: { 
+          user: { email: "${userEmail}" },
+          quiz: { course: { id: "${courseId}" } }
+        }
+      ) {
+        id
+        score
+        totalQuestions
+        completedAt
+        quiz {
+          id
+          title
+        }
+      }
+    }
+    `;
+
+    const result = await authenticatedRequest(query);
+    return result;
   };
 
   // Updated function to get all enrollments at once
@@ -279,7 +354,7 @@ export default function AdminPage({ onLogout }) {
       // First unpublish
       const unpublishMutation = gql`
         mutation UnpublishEnrollment {
-          unpublishUserEnrolledCourse(where: { id: "${enrollmentId}" }) {
+          unpublishUserEnrolledCourses(where: { id: "${enrollmentId}" }) {
             id
           }
         }
@@ -290,7 +365,7 @@ export default function AdminPage({ onLogout }) {
       // Then delete
       const deleteMutation = gql`
         mutation DeleteEnrollment {
-          deleteUserEnrolledCourse(where: { id: "${enrollmentId}" }) {
+          deleteUserEnrolledCourses(where: { id: "${enrollmentId}" }) {
             id
           }
         }
@@ -309,6 +384,59 @@ export default function AdminPage({ onLogout }) {
     }
   };
 
+  // Function to handle deleting quiz attempt
+  const handleDeleteQuizAttempt = (attemptId) => {
+    Alert.alert(
+      "Delete Quiz Attempt",
+      "Are you sure you want to delete this quiz attempt?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => deleteQuizAttempt(attemptId)
+        }
+      ]
+    );
+  };
+
+  const deleteQuizAttempt = async (attemptId) => {
+    try {
+      // First unpublish
+      const unpublishMutation = gql`
+        mutation UnpublishQuizAttempt {
+          unpublishUserQuizAttempt(where: { id: "${attemptId}" }) {
+            id
+          }
+        }
+      `;
+      
+      await authenticatedRequest(unpublishMutation);
+      
+      // Then delete
+      const deleteMutation = gql`
+        mutation DeleteQuizAttempt {
+          deleteUserQuizAttempt(where: { id: "${attemptId}" }) {
+            id
+          }
+        }
+      `;
+      
+      await authenticatedRequest(deleteMutation);
+      
+      // Update UI
+      setQuizAttemptData(current => current.filter(item => item.id !== attemptId));
+      Alert.alert("Success", "Quiz attempt successfully deleted");
+      
+    } catch (error) {
+      console.error("Error deleting quiz attempt:", error);
+      Alert.alert("Error", "Failed to delete quiz attempt. Please try again.");
+    }
+  };
+
   // Optional: Navigate to view user details
   const handleViewUserDetails = (userId) => {
     Alert.alert("View User", `Viewing details for user ID: ${userId}`);
@@ -320,6 +448,35 @@ export default function AdminPage({ onLogout }) {
       return user.email_addresses[0].email_address;
     }
     return "No email";
+  };
+
+  // Function to view specific user quiz attempts
+  const viewUserCourseQuizzes = async (userEmail, courseId) => {
+    try {
+      const result = await getUserQuizAttempts(userEmail, courseId);
+      
+      if (result?.userQuizAttempts?.length > 0) {
+        // Format the quiz attempts data for display
+        const quizInfo = result.userQuizAttempts.map(attempt => {
+          const completedDate = attempt.completedAt 
+            ? new Date(attempt.completedAt).toLocaleDateString() 
+            : "Not completed";
+          
+          return `${attempt.quiz.title}: ${attempt.score}/${attempt.totalQuestions} (${completedDate})`;
+        }).join('\n');
+        
+        Alert.alert(
+          "Quiz Attempts",
+          `User: ${userEmail}\n\n${quizInfo}`,
+          [{ text: "OK" }]
+        );
+      } else {
+        Alert.alert("No Quizzes", `No quiz attempts found for ${userEmail} in this course.`);
+      }
+    } catch (error) {
+      console.error("Error fetching specific user quiz attempts:", error);
+      Alert.alert("Error", "Failed to load quiz data for this user and course.");
+    }
   };
 
   return (
@@ -350,7 +507,66 @@ export default function AdminPage({ onLogout }) {
             )}
             <Text style={styles.statLabel}>Enrollments</Text>
           </View>
+          
+          <View style={styles.statCard}>
+            {quizLoading ? (
+              <ActivityIndicator color={Colors.PRIMARY} />
+            ) : (
+              <Text style={styles.statNumber}>{quizAttemptData.length}</Text>
+            )}
+            <Text style={styles.statLabel}>Quiz Attempts</Text>
+          </View>
         </View>
+
+        {/* Quiz Attempts Section */}
+        <Text style={styles.sectionTitle}>Quiz Attempt Data</Text>
+        
+        {quizLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={Colors.PRIMARY} />
+            <Text style={styles.loadingText}>Loading quiz attempts...</Text>
+          </View>
+        ) : (
+          <View style={styles.quizList}>
+            {quizAttemptData.length > 0 ? (
+              quizAttemptData.map(attempt => (
+                <View key={attempt.id} style={styles.quizCard}>
+                  <View style={styles.quizHeader}>
+                    <Text style={styles.quizUserEmail}>{attempt.user?.email || "Unknown user"}</Text>
+                    <TouchableOpacity
+                      style={styles.deleteButton}
+                      onPress={() => handleDeleteQuizAttempt(attempt.id)}
+                    >
+                      <Text style={styles.deleteButtonText}>Remove</Text>
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <View style={styles.quizInfo}>
+                    <Text style={styles.quizTitle}>{attempt.quiz?.title || "Unnamed quiz"}</Text>
+                    <Text style={styles.quizCourseName}>
+                      Course: {attempt.quiz?.course?.name || "Unknown course"}
+                    </Text>
+                    <View style={styles.quizResults}>
+                      <Text style={styles.quizScore}>
+                        Score: {attempt.score}/{attempt.totalQuestions}
+                      </Text>
+                      <Text style={styles.quizPercentage}>
+                        ({Math.round((attempt.score / attempt.totalQuestions) * 100)}%)
+                      </Text>
+                    </View>
+                    {attempt.completedAt && (
+                      <Text style={styles.quizCompleted}>
+                        Completed: {new Date(attempt.completedAt).toLocaleString()}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.noQuizzes}>No quiz attempts available</Text>
+            )}
+          </View>
+        )}
 
         {/* Enrollments Section */}
         <Text style={styles.sectionTitle}>Enrollment Data</Text>
@@ -367,12 +583,20 @@ export default function AdminPage({ onLogout }) {
                 <View key={enrollment.id} style={styles.enrollmentCard}>
                   <View style={styles.enrollmentHeader}>
                     <Text style={styles.enrollmentEmail}>{enrollment.userEmail}</Text>
-                    <TouchableOpacity
-                      style={styles.deleteButton}
-                      onPress={() => handleDeleteEnrollment(enrollment.id)}
-                    >
-                      <Text style={styles.deleteButtonText}>Remove</Text>
-                    </TouchableOpacity>
+                    <View style={styles.enrollmentActions}>
+                      <TouchableOpacity
+                        style={styles.viewQuizzesButton}
+                        onPress={() => viewUserCourseQuizzes(enrollment.userEmail, enrollment.courseid)}
+                      >
+                        <Text style={styles.viewQuizzesButtonText}>View Quizzes</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.deleteButton}
+                        onPress={() => handleDeleteEnrollment(enrollment.id)}
+                      >
+                        <Text style={styles.deleteButtonText}>Remove</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                   
                   <View style={styles.enrollmentCourseInfo}>
@@ -546,88 +770,260 @@ export default function AdminPage({ onLogout }) {
 const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
-    backgroundColor: '#f8f9fa'
+    backgroundColor: Colors.WHITE,
   },
   container: {
     flex: 1,
-    padding: 20,
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa'
+    padding: 16,
+    backgroundColor: Colors.WHITE,
   },
   welcomeText: {
-    fontSize: 28,
-    fontFamily: 'outfit-bold',
-    marginTop: 40,
-    marginBottom: 30
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    color: Colors.PRIMARY,
   },
   statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    width: '100%',
-    marginBottom: 30
+    marginBottom: 30,
+    flexWrap: 'wrap',
   },
   statCard: {
-    backgroundColor: Colors.WHITE,
-    padding: 20,
-    borderRadius: 10,
+    backgroundColor: '#f0f4f8',
+    borderRadius: 12,
+    padding: 16,
     alignItems: 'center',
-    justifyContent: 'center',
-    width: '30%',
-    height: 100,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    width: '23%',
+    minWidth: 80,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowRadius: 4,
+    elevation: 2,
+    marginBottom: 10,
   },
   statNumber: {
-    fontSize: 24,
-    fontFamily: 'outfit-bold',
-    color: Colors.PRIMARY
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Colors.PRIMARY,
   },
   statLabel: {
-    fontSize: 14,
-    fontFamily: 'outfit',
-    color: '#555'
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  sectionHeaderContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: 20,
   },
   sectionTitle: {
-    fontSize: 22,
-    fontFamily: 'outfit-bold',
-    alignSelf: 'flex-start',
-    marginBottom: 15,
-    marginTop: 30,
-    color: '#333'
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginVertical: 20,
+    color: Colors.PRIMARY,
+  },
+  addCourseButton: {
+    backgroundColor: Colors.PRIMARY,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  addCourseButtonText: {
+    color: Colors.WHITE,
+    fontWeight: '600',
   },
   loadingContainer: {
-    width: '100%',
     alignItems: 'center',
-    paddingVertical: 20
+    justifyContent: 'center',
+    padding: 20,
   },
   loadingText: {
-    fontSize: 16,
-    fontFamily: 'outfit',
-    color: '#666',
-    marginTop: 10
+    marginTop: 10,
+    color: Colors.PRIMARY,
   },
-  // Enrollment styles
-  enrollmentList: {
+  courseList: {
+    marginBottom: 30,
+  },
+  courseCard: {
+    backgroundColor: Colors.WHITE,
+    borderRadius: 12,
+    marginBottom: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  courseBanner: {
     width: '100%',
+    height: 120,
+  },
+  courseInfo: {
+    padding: 16,
+  },
+  courseName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  courseDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  courseAuthor: {
+    color: '#666',
+    fontSize: 14,
+  },
+  courseLevel: {
+    backgroundColor: Colors.LIGHT_PRIMARY,
+    color: Colors.PRIMARY,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  courseStats: {
+    flexDirection: 'row',
+    marginBottom: 12,
+  },
+  coursePrice: {
+    color: Colors.PRIMARY,
+    fontWeight: 'bold',
+    marginRight: 16,
+    fontSize: 16,
+  },
+  courseTime: {
+    color: '#666',
+    marginRight: 16,
+  },
+  chapterCount: {
+    color: '#666',
+  },
+  actionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  deleteButton: {
+    backgroundColor: '#ff4d4f',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+  deleteButtonText: {
+    color: Colors.WHITE,
+    fontWeight: '500',
+    fontSize: 12,
+  },
+  userList: {
+    marginBottom: 30,
+  },
+  userCard: {
+    backgroundColor: Colors.WHITE,
+    borderRadius: 12,
+    marginBottom: 16,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  userAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 16,
+  },
+  userAvatarPlaceholder: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: Colors.LIGHT_PRIMARY,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  userAvatarText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Colors.PRIMARY,
+  },
+  userInfo: {
+    flex: 1,
+  },
+  userName: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  userEmail: {
+    color: '#666',
+    marginBottom: 4,
+    fontSize: 14,
+  },
+  userJoined: {
+    color: '#999',
+    fontSize: 12,
+  },
+  viewButton: {
+    backgroundColor: Colors.PRIMARY,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+  viewButtonText: {
+    color: Colors.WHITE,
+    fontWeight: '500',
+    fontSize: 12,
+  },
+  logoutButton: {
+    backgroundColor: '#ff4d4f',
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginVertical: 20,
+    alignItems: 'center',
+  },
+  logoutText: {
+    color: Colors.WHITE,
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  noUsers: {
+    textAlign: 'center',
+    color: '#666',
+    padding: 20,
+  },
+  noCourses: {
+    textAlign: 'center',
+    color: '#666',
+    padding: 20,
+  },
+  enrollmentList: {
+    marginBottom: 30,
   },
   enrollmentCard: {
     backgroundColor: Colors.WHITE,
     borderRadius: 12,
     marginBottom: 16,
     padding: 16,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 3.84,
+    shadowRadius: 4,
     elevation: 3,
   },
   enrollmentHeader: {
@@ -635,293 +1031,144 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    paddingBottom: 8
+  },
+  enrollmentActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   enrollmentEmail: {
     fontSize: 16,
-    fontFamily: 'outfit-bold',
-    color: Colors.PRIMARY
+    fontWeight: '600',
   },
   enrollmentCourseInfo: {
     flexDirection: 'row',
-    marginBottom: 12
+    marginBottom: 12,
   },
   enrollmentCourseBanner: {
     width: 80,
     height: 60,
     borderRadius: 8,
-    marginRight: 12
+    marginRight: 12,
   },
   enrollmentCourseDetails: {
-    flex: 1
+    flex: 1,
+    justifyContent: 'center',
   },
   enrollmentCourseName: {
     fontSize: 16,
-    fontFamily: 'outfit-bold',
-    color: '#333',
-    marginBottom: 4
+    fontWeight: '600',
+    marginBottom: 4,
   },
   enrollmentCourseAuthor: {
-    fontSize: 14,
-    fontFamily: 'outfit',
     color: '#666',
-    marginBottom: 4
+    fontSize: 14,
+    marginBottom: 4,
   },
   enrollmentCourseLevel: {
-    fontSize: 12,
-    fontFamily: 'outfit-medium',
+    backgroundColor: Colors.LIGHT_PRIMARY,
     color: Colors.PRIMARY,
-    backgroundColor: `${Colors.PRIMARY}22`,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 4,
-    alignSelf: 'flex-start'
+    fontSize: 12,
+    fontWeight: '500',
+    alignSelf: 'flex-start',
   },
   enrollmentProgress: {
-    marginTop: 8
+    marginTop: 8,
   },
   enrollmentProgressTitle: {
     fontSize: 14,
-    fontFamily: 'outfit-medium',
-    color: '#444',
-    marginBottom: 6
+    fontWeight: '600',
+    marginBottom: 8,
   },
   completedChaptersList: {
-    paddingLeft: 4
+    marginLeft: 8,
   },
   completedChapter: {
-    fontSize: 14,
-    fontFamily: 'outfit',
-    color: '#555',
-    marginBottom: 3
+    color: '#666',
+    marginBottom: 4,
   },
   noCompletedChapters: {
-    fontSize: 14,
-    fontFamily: 'outfit-italic',
-    color: '#888',
-    fontStyle: 'italic'
+    color: '#999',
+    fontStyle: 'italic',
   },
   noEnrollments: {
-    fontSize: 16,
-    fontFamily: 'outfit',
+    textAlign: 'center',
     color: '#666',
-    marginVertical: 20,
-    alignSelf: 'center'
+    padding: 20,
   },
-  noCourses: {
-    fontSize: 16,
-    fontFamily: 'outfit',
-    color: '#666',
-    marginVertical: 20,
-    alignSelf: 'center'
+  // Quiz attempts styles
+  quizList: {
+    marginBottom: 30,
   },
-  noUsers: {
-    fontSize: 16,
-    fontFamily: 'outfit',
-    color: '#666',
-    marginVertical: 20,
-    alignSelf: 'center'
-  },
-  courseList: {
-    width: '100%',
-  },
-  courseCard: {
+  quizCard: {
     backgroundColor: Colors.WHITE,
     borderRadius: 12,
     marginBottom: 16,
-    overflow: 'hidden',
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 3.84,
+    shadowRadius: 4,
     elevation: 3,
   },
-  courseBanner: {
-    width: '100%',
-    height: 150,
-  },
-  courseInfo: {
-    padding: 16
-  },
-  courseName: {
-    fontSize: 18,
-    fontFamily: 'outfit-bold',
-    marginBottom: 8,
-    color: '#222'
-  },
-  courseDetails: {
+  quizHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 10
+    alignItems: 'center',
+    marginBottom: 12,
   },
-  courseAuthor: {
-    fontSize: 14,
-    fontFamily: 'outfit',
-    color: '#555'
-  },
-  courseLevel: {
-    fontSize: 14,
-    fontFamily: 'outfit-medium',
-    color: Colors.PRIMARY,
-    backgroundColor: `${Colors.PRIMARY}22`,
-    paddingHorizontal: 10,
-    paddingVertical: 2,
-    borderRadius: 5
-  },
-  courseStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-    paddingTop: 12,
-    marginTop: 4
-  },
-  coursePrice: {
+  quizUserEmail: {
     fontSize: 16,
-    fontFamily: 'outfit-bold',
-    color: Colors.PRIMARY
+    fontWeight: '600',
   },
-  courseTime: {
+  quizInfo: {
+    paddingLeft: 8,
+  },
+  quizTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  quizCourseName: {
+    color: '#666',
     fontSize: 14,
-    fontFamily: 'outfit',
-    color: '#666'
+    marginBottom: 8,
   },
-  chapterCount: {
-    fontSize: 14,
-    fontFamily: 'outfit',
-    color: '#666'
-  },
-  actionsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 12
-  },
-  deleteButton: {
-    backgroundColor: '#ff4757',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 6
-  },
-  deleteButtonText: {
-    color: Colors.WHITE,
-    fontFamily: 'outfit-medium',
-    fontSize: 14
-  },
-  logoutButton: {
-    backgroundColor: Colors.PRIMARY,
-    paddingVertical: 12,
-    paddingHorizontal: 30,
-    borderRadius: 8,
-    marginTop: 40,
-    marginBottom: 30
-  },
-  logoutText: {
-    color: Colors.WHITE,
-    fontFamily: 'outfit-medium',
-    fontSize: 16
-  },
-  // User list styles
-  userList: {
-    width: '100%',
-  },
-  userCard: {
+  quizResults: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.WHITE,
-    borderRadius: 12,
-    marginBottom: 12,
-    padding: 12,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 2.84,
-    elevation: 2,
+    marginBottom: 4,
   },
-  userAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-  },
-  userAvatarPlaceholder: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: Colors.PRIMARY,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  userAvatarText: {
-    color: Colors.WHITE,
-    fontSize: 20,
-    fontFamily: 'outfit-bold'
-  },
-  userInfo: {
-    flex: 1,
-    marginLeft: 12
-  },
-  userName: {
-    fontSize: 16,
-    fontFamily: 'outfit-bold',
-    color: '#333'
-  },
-  userEmail: {
+  quizScore: {
     fontSize: 14,
-    fontFamily: 'outfit',
-    color: '#555',
-    marginTop: 2
+    fontWeight: '600',
+    marginRight: 6,
   },
-  userJoined: {
+  quizPercentage: {
+    color: '#666',
+    fontSize: 14,
+  },
+  quizCompleted: {
+    color: '#999',
     fontSize: 12,
-    fontFamily: 'outfit',
-    color: '#888',
-    marginTop: 4
   },
-  viewButton: {
+  noQuizzes: {
+    textAlign: 'center',
+    color: '#666',
+    padding: 20,
+  },
+  viewQuizzesButton: {
     backgroundColor: Colors.PRIMARY,
     paddingVertical: 6,
     paddingHorizontal: 12,
-    borderRadius: 4
+    borderRadius: 6,
+    marginRight: 8,
   },
-  viewButtonText: {
+  viewQuizzesButtonText: {
     color: Colors.WHITE,
-    fontFamily: 'outfit',
-    fontSize: 12
-  },
-  sectionHeaderContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
-    marginTop: 30,
-    marginBottom: 15,
-  },
-  addCourseButton: {
-    backgroundColor: Colors.PRIMARY,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  addCourseButtonText: {
-    color: Colors.WHITE,
-    fontFamily: 'outfit-medium',
-    fontSize: 16,
+    fontWeight: '500',
+    fontSize: 12,
   }
 });
